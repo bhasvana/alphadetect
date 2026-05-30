@@ -46,7 +46,7 @@ def download_prices():
     close = yf.download(
         TICKERS, start=start, end=end, auto_adjust=True, progress=False
     )["Close"]
-    close.index = close.index.normalize()
+    close.index = pd.DatetimeIndex(close.index.date)  # strip timezone, keep date only
     return close
 
 
@@ -127,7 +127,9 @@ def run_backtest(_close_all, _anomalies, _clf):
 
     strategy_equity = (1 + strategy_daily).cumprod()
 
-    bm_daily  = _close_all.loc[test_dates].pct_change().dropna().mean(axis=1)
+    # Compute pct_change on full history then slice — avoids NaN on first test row
+    bm_daily  = _close_all.pct_change().mean(axis=1).dropna()
+    bm_daily  = bm_daily[bm_daily.index >= test_start]
     bm_equity = (1 + bm_daily).cumprod()
 
     roll_max = strategy_equity.cummax()
